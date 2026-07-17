@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { CircleCheckBig, Clock, LoaderCircle, Minus, Plus, Users } from "lucide-react";
+import { CircleCheckBig, Clock, LoaderCircle, MapPin, Minus, Plus, Users } from "lucide-react";
 
 import { createBookingAction, getAvailabilityAction } from "@/app/reserve/actions";
-import { DATE_LABELS, MAX_PARTY, RESERVATION_DATES, to12h } from "@/lib/reservations/config";
+import { DATE_LABELS, MAX_PARTY, RESERVATION_DATES, SHOP, SHOP_TEL, to12h } from "@/lib/reservations/config";
 import type { BookingResult, SlotAvailability } from "@/lib/reservations/types";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -112,10 +112,22 @@ export function BookingFlow({ initial }: { initial: Record<string, SlotAvailabil
             <Row label="Name" value={r.customer_name} />
           </dl>
         </div>
-        <p className="mt-4 text-xs text-neutral-500">
-          Please arrive on time — seatings are 60 minutes. Need to change or cancel? Call
-          the shop with your reference.
-        </p>
+        <div className="mt-4 space-y-1.5 text-xs text-neutral-500">
+          <p>Please arrive on time — seatings are 60 minutes.</p>
+          <p>
+            Change or cancel? Call{" "}
+            <a href={SHOP_TEL} className="font-medium text-rose-600">
+              {SHOP.phone}
+            </a>{" "}
+            with your reference.
+          </p>
+          <p className="pt-1 leading-relaxed text-neutral-400">
+            ご予約は「承認待ち」です。スタッフの確認後に確定します。変更・キャンセルはお電話ください。
+          </p>
+          <p className="flex items-center justify-center gap-1 pt-1 text-neutral-500">
+            <MapPin className="size-3.5 shrink-0" /> {SHOP.addressJa}
+          </p>
+        </div>
         <Button onClick={reset} variant="outline" className="mt-5 w-full">
           Make another reservation
         </Button>

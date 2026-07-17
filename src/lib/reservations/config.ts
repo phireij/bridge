@@ -59,3 +59,14 @@ export function isValidStart(t: string): boolean {
   const m = toMin(t);
   return m >= OPEN_MIN && m <= LAST_START_MIN && m % SLOT_STEP_MIN === 0;
 }
+
+/** Shop contact details (shown on the public reservation page). */
+export const SHOP = {
+  name: "Ruby's Cake Delights",
+  addressJa: "千葉県市川市市川1-16-15 花亀ビル1F-B",
+  areaEn: "Ichikawa, Chiba, Japan",
+  phone: "080-4355-7227",
+} as const;
+
+/** `tel:` href for the shop phone (digits only). */
+export const SHOP_TEL = `tel:${SHOP.phone.replace(/[^0-9]/g, "")}`;

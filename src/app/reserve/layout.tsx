@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { CakeSlice, Clock, MapPin } from "lucide-react";
+import { CakeSlice, Clock, MapPin, Phone } from "lucide-react";
+
+import { SHOP, SHOP_TEL } from "@/lib/reservations/config";
 
 export const metadata: Metadata = {
   title: "Reserve · Ruby's Cake Delights",
@@ -29,10 +31,20 @@ export default function ReserveLayout({
       <main className="mx-auto max-w-lg px-5 py-6">{children}</main>
 
       <footer className="mx-auto max-w-lg px-5 pb-10 pt-4 text-xs text-neutral-500">
-        <div className="flex items-center gap-1.5">
-          <MapPin className="size-3.5" /> Ichikawa, Chiba · Japan
+        <div className="flex items-start gap-1.5">
+          <MapPin className="mt-0.5 size-3.5 shrink-0" />
+          <span>
+            {SHOP.addressJa}
+            <span className="block text-neutral-400">{SHOP.areaEn}</span>
+          </span>
         </div>
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <Phone className="size-3.5" />
+          <a href={SHOP_TEL} className="hover:text-rose-600">
+            {SHOP.phone}
+          </a>
+        </div>
+        <div className="mt-1.5 flex items-center gap-1.5">
           <Clock className="size-3.5" /> Anniversary hours 10:00–20:00 · 60-minute seatings
         </div>
       </footer>
