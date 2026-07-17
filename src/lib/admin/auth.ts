@@ -10,12 +10,24 @@ import { createHash, timingSafeEqual } from "node:crypto";
 const COOKIE = "rcd_admin";
 const MAX_AGE = 60 * 60 * 12; // 12h
 
-/** Configured passcode, or a documented dev fallback when unset. */
-function expectedPasscode(): string {
-  return process.env.ADMIN_PASSCODE ?? "ruby-dev";
+/** True when running on Vercel (preview or production). */
+function deployed(): boolean {
+  return Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+}
+/**
+ * Configured passcode, or a dev fallback ONLY when running locally. In a
+ * deployed environment with no ADMIN_PASSCODE set, admin is treated as
+ * unconfigured (all sign-ins refused) rather than accepting a known default.
+ */
+function expectedPasscode(): string | null {
+  if (process.env.ADMIN_PASSCODE) return process.env.ADMIN_PASSCODE;
+  return deployed() ? null : "ruby-dev";
+}
+export function isAdminConfigured(): boolean {
+  return expectedPasscode() !== null;
 }
 export function isDefaultPasscode(): boolean {
-  return !process.env.ADMIN_PASSCODE;
+  return !process.env.ADMIN_PASSCODE && !deployed();
 }
 function sha(value: string): string {
   return createHash("sha256").update(value).digest("hex");
@@ -27,15 +39,19 @@ function equalHex(a: string, b: string): boolean {
 }
 
 export async function isAdminAuthed(): Promise<boolean> {
+  const expected = expectedPasscode();
+  if (!expected) return false;
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return false;
-  return equalHex(token, sha(expectedPasscode()));
+  return equalHex(token, sha(expected));
 }
 
 /** Returns true and sets the session cookie when the passcode matches. */
 export async function signIn(passcode: string): Promise<boolean> {
-  if (!equalHex(sha(passcode), sha(expectedPasscode()))) return false;
-  (await cookies()).set(COOKIE, sha(expectedPasscode()), {
+  const expected = expectedPasscode();
+  if (!expected) return false;
+  if (!equalHex(sha(passcode), sha(expected))) return false;
+  (await cookies()).set(COOKIE, sha(expected), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

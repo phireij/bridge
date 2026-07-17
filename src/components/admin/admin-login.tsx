@@ -9,7 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function AdminLogin({ devHint }: { devHint: boolean }) {
+export function AdminLogin({
+  devHint,
+  configured = true,
+}: {
+  devHint: boolean;
+  configured?: boolean;
+}) {
   const router = useRouter();
   const [passcode, setPasscode] = React.useState("");
   const [error, setError] = React.useState(false);
@@ -23,6 +29,20 @@ export function AdminLogin({ devHint }: { devHint: boolean }) {
       if (r.ok) router.refresh();
       else setError(true);
     });
+  }
+
+  if (!configured) {
+    return (
+      <div className="mx-auto mt-10 max-w-sm">
+        <div className="rounded-2xl border bg-card p-6 text-sm text-muted-foreground shadow-sm">
+          <p className="font-medium text-foreground">Admin not configured</p>
+          <p className="mt-1">
+            Set <code className="font-mono">ADMIN_PASSCODE</code> for this deployment to
+            enable staff sign-in.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

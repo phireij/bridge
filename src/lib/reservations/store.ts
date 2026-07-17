@@ -40,6 +40,29 @@ function hasAdmin(): boolean {
   );
 }
 
+/** True when running on Vercel (preview or production). */
+function deployed(): boolean {
+  return Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
+}
+/**
+ * The in-memory seed is a LOCAL-DEV convenience only. In any deployed
+ * environment we must NEVER fall back to memory — a misconfigured deploy has to
+ * fail safely instead of silently accepting real reservations into ephemeral
+ * storage that vanishes on the next request/instance.
+ */
+function seedAllowed(): boolean {
+  return !deployed();
+}
+class ReservationsNotConfiguredError extends Error {
+  constructor(msg = "RESERVATIONS_NOT_CONFIGURED") {
+    super(msg);
+    this.name = "ReservationsNotConfiguredError";
+  }
+}
+export function isConfigError(e: unknown): boolean {
+  return e instanceof ReservationsNotConfiguredError;
+}
+
 // ── in-memory fallback ────────────────────────────────────────────────────────
 const globalStore = globalThis as unknown as { __rcdReservations?: Reservation[] };
 function mem(): Reservation[] {
@@ -66,6 +89,7 @@ export async function getAvailability(date: string): Promise<SlotAvailability[]>
       capacity: Number(d.capacity),
     }));
   }
+  if (!seedAllowed()) throw new ReservationsNotConfiguredError();
   return computeAvailability(mem(), date);
 }
 
@@ -96,7 +120,11 @@ export async function createReservation(input: BookingInput): Promise<BookingRes
     return { ok: true, ref: reservation.ref, reservation };
   }
 
-  // seeded fallback
+  // Deployed + not live → refuse (never write to ephemeral memory).
+  if (!seedAllowed())
+    return fail("UNKNOWN", "Online reservations are temporarily unavailable. Please call the shop.");
+
+  // seeded fallback (local dev only)
   const store = mem();
   if (!canBook(store, input.date, input.start, input.guests))
     return fail("SLOT_FULL", "That time just filled up — please pick another slot.");
@@ -137,6 +165,7 @@ export async function listReservations(filters?: {
     if (error) throw new Error(error.message);
     return ((data as Row[]) ?? []).map(normalize);
   }
+  if (!seedAllowed()) throw new ReservationsNotConfiguredError("ADMIN_NOT_CONFIGURED");
   let list = mem().map((r) => ({ ...r }));
   if (filters?.date) list = list.filter((r) => r.reservation_date === filters.date);
   if (filters?.status) list = list.filter((r) => r.status === filters.status);
@@ -160,6 +189,7 @@ export async function updateReservationStatus(
     if (error) throw new Error(error.message);
     return;
   }
+  if (!seedAllowed()) throw new ReservationsNotConfiguredError("ADMIN_NOT_CONFIGURED");
   const row = mem().find((r) => r.id === id);
   if (row) row.status = status;
 }
