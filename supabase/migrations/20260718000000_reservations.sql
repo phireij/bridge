@@ -156,7 +156,7 @@ begin
     raise exception 'SLOT_FULL' using errcode = 'check_violation';
   end if;
 
-  v_ref := 'RCD-' || upper(substr(encode(gen_random_bytes(4), 'hex'), 1, 6));
+  v_ref := 'RCD-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 6));
 
   insert into public.reservations
     (ref, reservation_date, start_time, end_time, guests,
