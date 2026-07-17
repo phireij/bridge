@@ -15,7 +15,16 @@ export default function ReserveLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="light min-h-svh bg-[#fdf5f3] text-neutral-900">
+    <div
+      className="light min-h-svh bg-[#fdf5f3] text-neutral-900"
+      style={{ fontFamily: 'var(--font-sans), "Noto Sans JP", system-ui, sans-serif' }}
+    >
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap"
+        rel="stylesheet"
+      />
       <header className="border-b border-rose-100 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-lg items-center gap-3 px-5 py-4">
           <span className="flex size-10 items-center justify-center rounded-xl bg-rose-500 text-white">
