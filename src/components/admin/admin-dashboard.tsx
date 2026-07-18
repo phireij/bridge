@@ -11,6 +11,7 @@ import type {
   ReservationStatus,
   SlotAvailability,
 } from "@/lib/reservations/types";
+import type { LastEmailStatus } from "@/lib/email/store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -41,10 +42,12 @@ export function AdminDashboard({
   reservations,
   availByDate,
   live,
+  emailByRes = {},
 }: {
   reservations: Reservation[];
   availByDate: Record<string, SlotAvailability[]>;
   live: boolean;
+  emailByRes?: Record<string, LastEmailStatus>;
 }) {
   const router = useRouter();
   const [dateFilter, setDateFilter] = React.useState<string>(RESERVATION_DATES[0]);
@@ -184,6 +187,7 @@ export function AdminDashboard({
                     {r.phone}
                     {r.email ? ` · ${r.email}` : ""} ·{" "}
                     <span className="font-mono">{r.ref}</span>
+                    {r.email && <EmailBadge s={emailByRes[r.id]} />}
                   </p>
                   {r.notes && (
                     <p className="mt-1 rounded-md bg-muted px-2 py-1 text-xs text-foreground/80">
@@ -271,5 +275,27 @@ function Chips({
         </button>
       ))}
     </div>
+  );
+}
+
+const EMAIL_TONE: Record<LastEmailStatus["status"], string> = {
+  sent: "text-emerald-600 dark:text-emerald-400",
+  failed: "text-rose-600 dark:text-rose-400",
+  skipped_blank: "text-muted-foreground",
+  no_provider: "text-amber-600 dark:text-amber-400",
+};
+const EMAIL_LABEL: Record<LastEmailStatus["status"], string> = {
+  sent: "✓ sent",
+  failed: "! failed",
+  skipped_blank: "no email",
+  no_provider: "email off",
+};
+
+function EmailBadge({ s }: { s?: LastEmailStatus }) {
+  if (!s) return null;
+  return (
+    <span className={cn("ml-1", EMAIL_TONE[s.status])}>
+      · email {s.kind} {EMAIL_LABEL[s.status]}
+    </span>
   );
 }

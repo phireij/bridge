@@ -12,9 +12,29 @@ staff admin additionally needs the two server-only secrets.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | public | Anon key (RLS keeps the table closed) |
 | `SUPABASE_SERVICE_ROLE_KEY` | **secret, server-only** | Staff admin reads/writes (bypasses RLS) |
 | `ADMIN_PASSCODE` | **secret, server-only** | Staff admin gate |
+| `RESEND_API_KEY` | **secret, server-only** | Transactional email sends (received / confirmed / cancelled) |
+| `RESEND_FROM_EMAIL` | server-only | Verified `From:` (bare email or "Display <email>") |
+| `RESEND_REPLY_TO` | server-only (optional) | Reply-to override; defaults to the `From:` |
 
-No secret is prefixed `NEXT_PUBLIC_`. `store.ts` and `supabase/admin.ts` import
-`server-only`, so a client import is a build error.
+No secret is prefixed `NEXT_PUBLIC_`. `store.ts`, `supabase/admin.ts`, and the
+`lib/email/*` modules import `server-only`, so a client import is a build error.
+
+## Transactional email (Resend)
+
+- Fire-and-log: email sends happen AFTER a successful booking / admin status
+  change and are wrapped in try/catch. **A failed or missing send never rolls
+  back a reservation.** All attempts are recorded to the `email_events` table
+  (kind ∈ received/confirmed/cancelled; status ∈ sent/failed/skipped_blank/no_provider).
+- Idempotent per `(reservation_id, kind)`: a unique index on `status='sent'`
+  makes a duplicate send a no-op.
+- Never sends when the customer's email is blank.
+- **Escape hatch:** on a deployed environment without `RESEND_API_KEY` +
+  `RESEND_FROM_EMAIL`, the `/reserve` page hides the email input entirely and
+  server actions strip any email — per CTO policy, don't collect what we can't use.
+
+Resend setup: verify the sending domain in Resend (SPF, DKIM, MX for bounces);
+create an API key with **Sending access** only; add both env vars in Vercel for
+**Preview and Production**.
 
 ## Fail-safe behavior
 

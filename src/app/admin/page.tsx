@@ -7,6 +7,7 @@ import {
 } from "@/lib/reservations/store";
 import type { Reservation, SlotAvailability } from "@/lib/reservations/types";
 import { isAdminAuthed, isAdminConfigured, isDefaultPasscode } from "@/lib/admin/auth";
+import { getLastEmailStatusByReservation, type LastEmailStatus } from "@/lib/email/store";
 import { AdminLogin } from "@/components/admin/admin-login";
 import { AdminDashboard } from "@/components/admin/admin-dashboard";
 
@@ -34,11 +35,16 @@ export default async function AdminPage() {
     throw e;
   }
 
+  const emailByRes: Record<string, LastEmailStatus> = await getLastEmailStatusByReservation(
+    reservations.map((r) => r.id),
+  );
+
   return (
     <AdminDashboard
       reservations={reservations}
       availByDate={availByDate}
       live={isLive()}
+      emailByRes={emailByRes}
     />
   );
 }

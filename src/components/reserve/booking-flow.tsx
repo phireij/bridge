@@ -35,7 +35,13 @@ function Section({
   );
 }
 
-export function BookingFlow({ initial }: { initial: Record<string, SlotAvailability[]> }) {
+export function BookingFlow({
+  initial,
+  emailEnabled = true,
+}: {
+  initial: Record<string, SlotAvailability[]>;
+  emailEnabled?: boolean;
+}) {
   const [avail, setAvail] = React.useState(initial);
   const [date, setDate] = React.useState<string | null>(null);
   const [guests, setGuests] = React.useState(2);
@@ -65,7 +71,7 @@ export function BookingFlow({ initial }: { initial: Record<string, SlotAvailabil
         guests,
         name: form.name,
         phone: form.phone,
-        email: form.email || undefined,
+        email: emailEnabled ? form.email || undefined : undefined,
         notes: form.notes || undefined,
         consent,
       });
@@ -267,19 +273,21 @@ export function BookingFlow({ initial }: { initial: Record<string, SlotAvailabil
                 autoComplete="tel"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">
-                Email <span className="text-neutral-400">(optional)</span>
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                placeholder="you@example.com"
-                autoComplete="email"
-              />
-            </div>
+            {emailEnabled && (
+              <div className="space-y-1.5">
+                <Label htmlFor="email">
+                  Email <span className="text-neutral-400">(optional)</span>
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="notes">
                 Notes <span className="text-neutral-400">(optional)</span>

@@ -1,3 +1,4 @@
+import { isEmailEnabled } from "@/lib/email/config";
 import { RESERVATION_DATES, SHOP, SHOP_TEL } from "@/lib/reservations/config";
 import { getAvailability, isConfigError } from "@/lib/reservations/store";
 import type { SlotAvailability } from "@/lib/reservations/types";
@@ -20,7 +21,7 @@ export default async function ReservePage() {
     throw e;
   }
 
-  return <BookingFlow initial={initial} />;
+  return <BookingFlow initial={initial} emailEnabled={isEmailEnabled()} />;
 }
 
 function Unavailable() {

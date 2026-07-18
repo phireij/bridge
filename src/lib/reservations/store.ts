@@ -14,6 +14,7 @@ import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 
+import { isEmailEnabled } from "@/lib/email/config";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { canBook, computeAvailability } from "./availability";
 import { endOf, isValidDate, isValidStart, MAX_PARTY } from "./config";
@@ -103,6 +104,11 @@ export async function createReservation(input: BookingInput): Promise<BookingRes
   if (!Number.isInteger(input.guests) || input.guests < 1 || input.guests > MAX_PARTY)
     return fail("INVALID_PARTY_SIZE", `Party size must be between 1 and ${MAX_PARTY}.`);
 
+  // Defense in depth: never persist an email when the provider is disabled,
+  // even if a client bypasses the hidden field. (CTO escape-hatch policy.)
+  const safeInput: BookingInput = { ...input };
+  if (!isEmailEnabled()) safeInput.email = undefined;
+
   if (isLive()) {
     const { data, error } = await anonClient().rpc("book_reservation", {
       p_date: input.date,
@@ -110,8 +116,8 @@ export async function createReservation(input: BookingInput): Promise<BookingRes
       p_guests: input.guests,
       p_name: input.name,
       p_phone: input.phone,
-      p_email: input.email ?? null,
-      p_notes: input.notes ?? null,
+      p_email: safeInput.email ?? null,
+      p_notes: safeInput.notes ?? null,
       p_consent: input.consent,
     });
     if (error) return mapDbError(error.message);
@@ -137,8 +143,8 @@ export async function createReservation(input: BookingInput): Promise<BookingRes
     guests: input.guests,
     customer_name: input.name.trim(),
     phone: input.phone.trim(),
-    email: input.email?.trim() || null,
-    notes: input.notes?.trim() || null,
+    email: safeInput.email?.trim() || null,
+    notes: safeInput.notes?.trim() || null,
     status: "pending",
     consent: true,
     created_at: new Date().toISOString(),
@@ -175,6 +181,20 @@ export async function listReservations(filters?: {
       a.start_time.localeCompare(b.start_time) ||
       a.created_at.localeCompare(b.created_at),
   );
+}
+
+export async function getReservation(id: string): Promise<Reservation | null> {
+  if (hasAdmin()) {
+    const { data, error } = await createAdminClient()
+      .from("reservations")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data ? normalize(data as Row) : null;
+  }
+  if (!seedAllowed()) throw new ReservationsNotConfiguredError("ADMIN_NOT_CONFIGURED");
+  return mem().find((r) => r.id === id) ?? null;
 }
 
 export async function updateReservationStatus(
