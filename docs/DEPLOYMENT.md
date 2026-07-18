@@ -36,6 +36,14 @@ Resend setup: verify the sending domain in Resend (SPF, DKIM, MX for bounces);
 create an API key with **Sending access** only; add both env vars in Vercel for
 **Preview and Production**.
 
+> **Vercel env-var gotcha:** environment variables are scoped **per environment**
+> (Production / Preview / Development). Setting a var for Production only will
+> leave Preview without it — the app then correctly fails safe (Supabase →
+> "temporarily unavailable"; Resend → email input hidden). If you see either of
+> those on a Preview URL, first check that the variable's **Environment** column
+> includes **Preview** (or "All Environments"), then trigger a fresh redeploy so
+> the new value is baked into the build.
+
 ## Fail-safe behavior
 
 The in-memory seed is a **local-dev convenience only**. Any deployed environment
