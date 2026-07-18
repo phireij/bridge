@@ -65,7 +65,7 @@ export const SHOP = {
   name: "Ruby's Cake Delights",
   addressJa: "千葉県市川市市川1-16-15 花亀ビル1F-B",
   areaEn: "Ichikawa, Chiba, Japan",
-  phone: "080-4355-7227",
+  phone: "050-1794-2959",
 } as const;
 
 /** `tel:` href for the shop phone (digits only). */
