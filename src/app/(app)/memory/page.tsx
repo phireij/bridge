@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Building2, Sparkles, Target } from "lucide-react";
 
-import { getCompany, getCompanyValues, getDecisions } from "@/lib/data";
+import { getCompany, getCompanyMemory, getCompanyValues, getDecisions } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,11 +21,21 @@ const IMPACT_BADGE = {
   low: "bg-muted text-muted-foreground",
 } as const;
 
+const CATEGORY_LABEL: Record<string, string> = {
+  mission_decision: "Mission decision",
+  release_approval: "Release approval",
+  architecture_decision: "Architecture decision",
+  launch_certificate: "Launch certificate",
+  operating_rule: "Operating rule",
+  lesson_learned: "Lesson learned",
+};
+
 export default async function MemoryPage() {
-  const [company, values, decisions] = await Promise.all([
+  const [company, values, decisions, memory] = await Promise.all([
     getCompany(),
     getCompanyValues(),
     getDecisions(),
+    getCompanyMemory(),
   ]);
 
   const facts = [
@@ -40,7 +50,7 @@ export default async function MemoryPage() {
       <PageHeader
         eyebrow={`${company.name} · Est. ${company.founded}`}
         title="Company Memory"
-        description="Who we are, where we're going, and the decisions that got us here."
+        description="Who we are, where we're going, and the record of every mission decision, release, and lesson learned."
       />
 
       <div className="grid gap-6 md:grid-cols-2">
@@ -110,6 +120,43 @@ export default async function MemoryPage() {
           ))}
         </div>
       </section>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Mission History</CardTitle>
+          <CardDescription>
+            Live record of mission decisions, release approvals, architecture decisions, and
+            lessons learned — starting with Mission #001. Sourced from company_memory, not seed
+            data.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {memory.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No records yet. Check that Bridge HQ Supabase env vars are configured for this
+              environment.
+            </p>
+          ) : (
+            <ol className="relative space-y-5 border-l pl-6">
+              {memory.map((m) => (
+                <li key={m.id} className="relative">
+                  <span className="absolute top-1 -left-[1.7rem] size-3 rounded-full border-2 border-card bg-primary/60" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold">{m.title}</h3>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {CATEGORY_LABEL[m.category] ?? m.category}
+                    </Badge>
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {new Date(m.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{m.content}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

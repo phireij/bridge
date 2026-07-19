@@ -5,6 +5,7 @@ import {
   Cpu,
   Inbox,
   LayoutDashboard,
+  Rocket,
   Server,
   Settings,
   type LucideIcon,
@@ -43,6 +44,12 @@ export const navItems: NavItem[] = [
     href: "/cto",
     icon: Cpu,
     description: "Engineering health, the stack, deployments, and tech decisions.",
+  },
+  {
+    title: "Mission Control",
+    href: "/missions",
+    icon: Rocket,
+    description: "Every mission — owner, phase, progress, blockers, and history.",
   },
   {
     title: "AI Workforce",

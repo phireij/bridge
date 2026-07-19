@@ -20,11 +20,13 @@ import { services, vpsResources } from "./infrastructure";
 import { ruby } from "./ruby";
 import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import type {
+  CompanyMemoryRecord,
   DecisionRecord,
   InboxItem,
   MissionEventRecord,
   MissionRecord,
   ReportRecord,
+  WorkforceStatusRecord,
 } from "./types";
 
 export * from "./types";
@@ -207,6 +209,42 @@ export async function getDecisionsAudit(): Promise<DecisionRecord[]> {
     action: d.action,
     notes: d.notes,
     createdAt: d.created_at,
+  }));
+}
+
+export async function getWorkforceStatus(): Promise<WorkforceStatusRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("workforce_status")
+    .select("*")
+    .order("agent_name", { ascending: true });
+
+  return (data ?? []).map((w) => ({
+    id: w.id,
+    agentName: w.agent_name,
+    role: w.role,
+    status: w.status,
+    currentTask: w.current_task,
+    lastActiveAt: w.last_active_at,
+  }));
+}
+
+export async function getCompanyMemory(): Promise<CompanyMemoryRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("company_memory")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((m) => ({
+    id: m.id,
+    category: m.category,
+    title: m.title,
+    content: m.content,
+    missionId: m.mission_id,
+    createdAt: m.created_at,
   }));
 }
 
