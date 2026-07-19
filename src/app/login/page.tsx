@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Sign in — Bridge" };
@@ -16,7 +17,9 @@ export default function LoginPage() {
             Internal access only — CEO, CTO, HyperAgent, Hermes.
           </p>
         </div>
-        <LoginForm />
+        <Suspense fallback={null}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   );
