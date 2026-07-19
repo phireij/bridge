@@ -5,13 +5,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { PageHeader } from "@/components/shared/page-header";
 import { submitReportAction } from "./actions";
 
@@ -31,15 +24,19 @@ export default function NewReportPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="agent">Agent</Label>
-                <Select name="agent" defaultValue="hyperagent">
-                  <SelectTrigger id="agent">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hyperagent">HyperAgent</SelectItem>
-                    <SelectItem value="hermes">Hermes</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Plain native <select> on purpose: it posts its value via
+                    FormData automatically for this Server Action form. The
+                    Radix-based Select component doesn't render a native form
+                    control, so it silently submitted nothing here. */}
+                <select
+                  id="agent"
+                  name="agent"
+                  defaultValue="hyperagent"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  <option value="hyperagent">HyperAgent</option>
+                  <option value="hermes">Hermes</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="missionCode">Mission code (optional)</Label>
