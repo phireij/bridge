@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getCompany } from "@/lib/data";
+import { getCurrentProfile } from "@/lib/auth/session";
 import { site } from "@/config/site";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -14,14 +15,16 @@ import {
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { AppearanceControl } from "@/components/settings/appearance";
+import { CredentialsPanel } from "./credentials-panel";
 
 export const metadata: Metadata = { title: "Settings" };
 
 type IntegrationState = "connected" | "mock" | "not_connected";
 
 const integrations: { name: string; detail: string; state: IntegrationState }[] = [
-  { name: "GitHub", detail: "Source control · PR #1 open", state: "connected" },
-  { name: "Supabase", detail: "Scaffolded · not yet live", state: "mock" },
+  { name: "GitHub", detail: "Source control · PR #3 in review", state: "connected" },
+  { name: "Supabase (bridge-hq)", detail: "Bridge Lite HQ — live", state: "connected" },
+  { name: "Supabase (ruby-reservations)", detail: "Reservations — live", state: "connected" },
   { name: "Komoju", detail: "Primary payments · JP", state: "connected" },
   { name: "Vercel", detail: "Bridge hosting", state: "connected" },
   { name: "Yamato Cold-Chain", detail: "Nationwide delivery", state: "connected" },
@@ -42,11 +45,11 @@ function IntegrationBadge({ state }: { state: IntegrationState }) {
 }
 
 export default async function SettingsPage() {
-  const company = await getCompany();
+  const [company, profile] = await Promise.all([getCompany(), getCurrentProfile()]);
 
-  const profile = [
-    { label: "Name", value: site.ceo.name },
-    { label: "Role", value: site.ceo.title },
+  const profileFields = [
+    { label: "Name", value: profile?.displayName ?? site.ceo.name },
+    { label: "Role", value: profile?.role ?? site.ceo.title },
     { label: "Headquarters", value: company.hq },
     { label: "Time zone", value: company.timezone },
   ];
@@ -73,14 +76,14 @@ export default async function SettingsPage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-base font-semibold">{site.ceo.name}</p>
+                <p className="text-base font-semibold">{profile?.displayName ?? site.ceo.name}</p>
                 <p className="text-sm text-muted-foreground">
                   {site.ceo.title} · {company.name}
                 </p>
               </div>
             </div>
             <dl className="grid grid-cols-2 gap-4">
-              {profile.map((field) => (
+              {profileFields.map((field) => (
                 <div key={field.label}>
                   <dt className="text-xs text-muted-foreground">{field.label}</dt>
                   <dd className="mt-0.5 text-sm font-medium">{field.value}</dd>
@@ -102,6 +105,21 @@ export default async function SettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {profile?.role === "ceo" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent Credentials</CardTitle>
+            <CardDescription>
+              Rotate HyperAgent's and Hermes' Supabase Auth passwords. Shown once on
+              rotation, never stored — only the rotation event itself is audited.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CredentialsPanel />
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
@@ -148,7 +166,7 @@ export default async function SettingsPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Data source</p>
-            <p className="mt-0.5 text-sm font-medium">Seeded (mock)</p>
+            <p className="mt-0.5 text-sm font-medium">Live (bridge-hq)</p>
           </div>
         </CardContent>
       </Card>

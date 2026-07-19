@@ -326,6 +326,14 @@ export interface WorkforceStatusRecord {
   status: string;
   currentTask: string | null;
   lastActiveAt: string | null;
+  departmentName: string | null;
+}
+
+export interface DepartmentRecord {
+  id: string;
+  name: string;
+  description: string | null;
+  createdAt: string;
 }
 
 export interface CompanyMemoryRecord {

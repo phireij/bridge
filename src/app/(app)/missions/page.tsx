@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getMissionEvents, getMissions } from "@/lib/data";
+import { getDepartments, getMissionEvents, getMissions, getWorkforceStatus } from "@/lib/data";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -25,7 +25,11 @@ const STATUS_BADGE = {
 } as const;
 
 export default async function MissionControlPage() {
-  const missions = await getMissions();
+  const [missions, departments, workforce] = await Promise.all([
+    getMissions(),
+    getDepartments(),
+    getWorkforceStatus(),
+  ]);
   const active = missions.find((m) => m.status === "active") ?? missions[0] ?? null;
   const timeline = active ? await getMissionEvents(active.id) : [];
   const blockers = timeline.filter((e) => e.eventType === "blocker");
@@ -99,6 +103,27 @@ export default async function MissionControlPage() {
           No missions yet — add a row to the missions table to see it here.
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Departments</CardTitle>
+          <CardDescription>
+            First-class organizational units — every mission and workforce record belongs to one.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {departments.map((dept) => (
+            <div key={dept.id} className="rounded-lg border p-3">
+              <p className="text-sm font-semibold">{dept.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{dept.description}</p>
+              <p className="mt-2 text-[11px] font-medium text-muted-foreground">
+                {workforce.filter((w) => w.departmentName === dept.name).length} member
+                {workforce.filter((w) => w.departmentName === dept.name).length === 1 ? "" : "s"}
+              </p>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

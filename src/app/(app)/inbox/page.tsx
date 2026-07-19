@@ -1,20 +1,13 @@
 import type { Metadata } from "next";
 
 import { getInbox } from "@/lib/data";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
+import { DecisionCard } from "@/components/shared/decision-card";
 import { InboxActions } from "./inbox-actions-menu";
 
 export const metadata: Metadata = { title: "CEO Inbox" };
-
-const LEVEL_BADGE = {
-  high: "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-300",
-  medium: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300",
-  low: "border-border bg-muted text-muted-foreground",
-} as const;
 
 export default async function InboxPage() {
   const items = await getInbox();
@@ -25,7 +18,7 @@ export default async function InboxPage() {
       <PageHeader
         eyebrow="Awaiting your call"
         title="CEO Inbox"
-        description="Structured reports HyperAgent and Hermes have submitted, awaiting your decision. Every action here is written to the audit trail."
+        description="Every HyperAgent and Hermes report awaiting your decision, as a standardized Decision Card. Every action here is written to the audit trail."
       />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -47,29 +40,11 @@ export default async function InboxPage() {
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <Card
+            <DecisionCard
               key={item.id}
-              className={cn(
-                "flex flex-col gap-2 p-4 sm:p-5",
-                item.unread && "border-l-2 border-l-rose-500",
-              )}
-            >
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm font-semibold">{item.title}</h3>
-                <Badge variant="outline" className={cn("text-[10px]", LEVEL_BADGE[item.level])}>
-                  {item.level}
-                </Badge>
-                {item.mission ? (
-                  <Badge variant="secondary" className="text-[10px]">
-                    Mission #{item.mission}
-                  </Badge>
-                ) : null}
-                <span className="ml-auto text-xs text-muted-foreground">{item.time}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">{item.from}</p>
-              <p className="text-sm text-foreground/90">{item.preview}</p>
-              {item.reportId ? <InboxActions reportId={item.reportId} /> : null}
-            </Card>
+              item={item}
+              actions={item.reportId ? <InboxActions reportId={item.reportId} /> : null}
+            />
           ))}
         </div>
       )}

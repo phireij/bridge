@@ -22,6 +22,7 @@ import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import type {
   CompanyMemoryRecord,
   DecisionRecord,
+  DepartmentRecord,
   InboxItem,
   MissionEventRecord,
   MissionRecord,
@@ -217,7 +218,7 @@ export async function getWorkforceStatus(): Promise<WorkforceStatusRecord[]> {
   const supabase = await createBridgeServerClient();
   const { data } = await supabase
     .from("workforce_status")
-    .select("*")
+    .select("*, departments(name)")
     .order("agent_name", { ascending: true });
 
   return (data ?? []).map((w) => ({
@@ -227,6 +228,24 @@ export async function getWorkforceStatus(): Promise<WorkforceStatusRecord[]> {
     status: w.status,
     currentTask: w.current_task,
     lastActiveAt: w.last_active_at,
+    departmentName:
+      (w.departments as unknown as { name: string } | null)?.name ?? null,
+  }));
+}
+
+export async function getDepartments(): Promise<DepartmentRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("departments")
+    .select("*")
+    .order("name", { ascending: true });
+
+  return (data ?? []).map((d) => ({
+    id: d.id,
+    name: d.name,
+    description: d.description,
+    createdAt: d.created_at,
   }));
 }
 
