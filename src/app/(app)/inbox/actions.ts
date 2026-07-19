@@ -5,6 +5,16 @@ import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import { getCurrentProfile } from "@/lib/auth/session";
 import type { DecisionAction } from "@/lib/data/types";
 
+/**
+ * Records a CEO decision via the `record_decision` Postgres RPC (Mission
+ * #002A CTO security corrections). The RPC is the single source of truth
+ * for this write: it role-checks CEO itself, row-locks the report, rejects
+ * an already-actioned report (duplicate-submission protection), and writes
+ * the decision + report status + mission event + mission update in one
+ * transaction. The client-side role check below is a fast-fail UX guard
+ * only — the RPC and decisions_ceo_insert policy are what actually enforce
+ * this server-side.
+ */
 async function recordDecision(
   reportId: string,
   action: DecisionAction,
@@ -17,42 +27,13 @@ async function recordDecision(
 
   const supabase = await createBridgeServerClient();
 
-  const { data: report } = await supabase
-    .from("reports")
-    .select("id, mission_id, agent")
-    .eq("id", reportId)
-    .single();
-
-  const { error: decisionError } = await supabase.from("decisions").insert({
-    report_id: reportId,
-    mission_id: report?.mission_id ?? null,
-    actor_id: profile.id,
-    action,
-    notes,
+  const { error } = await supabase.rpc("record_decision", {
+    p_report_id: reportId,
+    p_action: action,
+    p_notes: notes,
   });
-  if (decisionError) throw new Error(decisionError.message);
 
-  const nextStatus = action === "approve" ? "actioned" : "reviewed";
-  const { error: reportError } = await supabase
-    .from("reports")
-    .update({ status: nextStatus })
-    .eq("id", reportId);
-  if (reportError) throw new Error(reportError.message);
-
-  if (report?.mission_id) {
-    await supabase.from("mission_events").insert({
-      mission_id: report.mission_id,
-      event_type: "decision",
-      description: `CEO ${action.replace("_", " ")}d a report from ${report.agent}.${
-        notes ? ` Notes: ${notes}` : ""
-      }`,
-      actor: profile.displayName,
-    });
-    await supabase
-      .from("missions")
-      .update({ latest_decision: `${action.replace("_", " ")} — ${new Date().toLocaleDateString()}` })
-      .eq("id", report.mission_id);
-  }
+  if (error) throw new Error(error.message);
 
   revalidatePath("/inbox");
   revalidatePath("/cto");
