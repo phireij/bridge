@@ -124,6 +124,10 @@ export interface InboxItem {
   level: Level;
   unread: boolean;
   actions?: string[];
+  /** Mission #002A: mission code this item relates to, if any. */
+  mission?: string | null;
+  /** Mission #002A: the underlying `reports` row id, for the decision actions. */
+  reportId?: string;
 }
 
 // ── Decisions ──────────────────────────────────────────────────────────────
@@ -255,4 +259,80 @@ export interface RubyProject {
   phases: RubyPhase[];
   tasks: RubyTask[];
   social: SocialChannel[];
+}
+
+// ── Bridge Lite Operational HQ (Mission #002A) ──────────────────────────────
+// Backed by the dedicated `bridge-hq` Supabase project. See AGENTS.md for the
+// project map — never point these at ruby-reservations.
+
+export type HqRole = "ceo" | "cto" | "hyperagent" | "hermes" | "unassigned";
+export type ReportAgent = "hyperagent" | "hermes";
+export type ReportStatus = "submitted" | "reviewed" | "actioned";
+export type DecisionAction = "approve" | "reject" | "request_revision";
+export type MissionStatus = "active" | "blocked" | "complete" | "archived";
+
+export interface MissionRecord {
+  id: string;
+  code: string;
+  title: string;
+  owner: string;
+  phase: string;
+  progress: number;
+  status: MissionStatus;
+  nextAction: string | null;
+  latestDecision: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MissionEventRecord {
+  id: string;
+  missionId: string;
+  eventType: string;
+  description: string;
+  actor: string;
+  createdAt: string;
+}
+
+export interface ReportRecord {
+  id: string;
+  agent: ReportAgent;
+  missionId: string | null;
+  missionCode: string | null;
+  summary: string;
+  evidence: string | null;
+  risks: string | null;
+  recommendation: string | null;
+  requestedDecision: string | null;
+  relatedLinks: string[];
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface DecisionRecord {
+  id: string;
+  reportId: string | null;
+  missionId: string | null;
+  actorName: string;
+  action: DecisionAction;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface WorkforceStatusRecord {
+  id: string;
+  agentName: string;
+  role: string;
+  status: string;
+  currentTask: string | null;
+  lastActiveAt: string | null;
+}
+
+export interface CompanyMemoryRecord {
+  id: string;
+  category: string;
+  title: string;
+  content: string;
+  missionId: string | null;
+  createdAt: string;
 }
