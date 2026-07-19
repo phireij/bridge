@@ -21,11 +21,14 @@ import { ruby } from "./ruby";
 import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import type {
   CompanyMemoryRecord,
+  CtoBriefRecord,
   DecisionRecord,
   DepartmentRecord,
+  EngineeringStandardRecord,
   InboxItem,
   MissionEventRecord,
   MissionRecord,
+  PlaybookRecord,
   ReportRecord,
   WorkforceStatusRecord,
 } from "./types";
@@ -265,6 +268,77 @@ export async function getCompanyMemory(): Promise<CompanyMemoryRecord[]> {
     missionId: m.mission_id,
     createdAt: m.created_at,
   }));
+}
+
+// ── CTO Office Intelligence Framework (Mission #003A — live Supabase) ──────
+
+export async function getEngineeringStandards(): Promise<EngineeringStandardRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("engineering_standards")
+    .select("*")
+    .order("category", { ascending: true });
+
+  return (data ?? []).map((s) => ({
+    id: s.id,
+    title: s.title,
+    category: s.category,
+    content: s.content,
+    createdAt: s.created_at,
+  }));
+}
+
+export async function getPlaybooks(): Promise<PlaybookRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("playbooks")
+    .select("*")
+    .order("category", { ascending: true });
+
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    title: p.title,
+    category: p.category,
+    steps: p.steps,
+    createdAt: p.created_at,
+  }));
+}
+
+export async function getCtoBriefs(): Promise<CtoBriefRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("cto_briefs")
+    .select("*, missions(code), profiles(display_name)")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((b) => ({
+    id: b.id,
+    missionId: b.mission_id,
+    missionCode: (b.missions as unknown as { code: string } | null)?.code ?? null,
+    title: b.title,
+    summary: b.summary,
+    recommendation: b.recommendation,
+    rationale: b.rationale,
+    generatedByName: (b.profiles as unknown as { display_name: string } | null)?.display_name ?? null,
+    createdAt: b.created_at,
+  }));
+}
+
+/**
+ * "Engineering Memory" (Mission #003A) is deliberately a filtered read of
+ * the existing company_memory table, not a new parallel store — one source
+ * of truth for company history. This filters to the categories that are
+ * genuinely engineering-facing (architecture decisions, operating rules,
+ * lessons learned), leaving release approvals and mission decisions to the
+ * general Company Memory page.
+ */
+export async function getEngineeringMemory(): Promise<CompanyMemoryRecord[]> {
+  const memory = await getCompanyMemory();
+  const engineeringCategories = new Set(["architecture_decision", "operating_rule", "lesson_learned"]);
+  return memory.filter((m) => engineeringCategories.has(m.category));
 }
 
 // ── Infrastructure ───────────────────────────────────────────────────────────

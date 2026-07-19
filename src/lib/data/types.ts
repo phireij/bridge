@@ -344,3 +344,35 @@ export interface CompanyMemoryRecord {
   missionId: string | null;
   createdAt: string;
 }
+
+// ── CTO Office Intelligence Framework (Mission #003A) ───────────────────────
+
+export interface EngineeringStandardRecord {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface PlaybookRecord {
+  id: string;
+  title: string;
+  category: string;
+  steps: string;
+  createdAt: string;
+}
+
+export type BriefRecommendation = "go" | "go_with_conditions" | "no_go";
+
+export interface CtoBriefRecord {
+  id: string;
+  missionId: string | null;
+  missionCode: string | null;
+  title: string;
+  summary: string;
+  recommendation: BriefRecommendation;
+  rationale: string;
+  generatedByName: string | null;
+  createdAt: string;
+}

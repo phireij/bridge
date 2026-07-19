@@ -3,13 +3,18 @@ import { GitBranch, GitPullRequest } from "lucide-react";
 
 import {
   getActiveMission,
+  getCtoBriefs,
   getCtoRecommendations,
   getDeployments,
+  getEngineeringMemory,
+  getEngineeringStandards,
   getIncidents,
   getLatestReportByAgent,
   getMissionEvents,
+  getPlaybooks,
   getTechStack,
 } from "@/lib/data";
+import { computeRecommendation, RECOMMENDATION_LABEL, type Recommendation } from "@/lib/recommendation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,13 +32,21 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge, StatusDot } from "@/components/shared/status-badge";
+import { BriefGeneratorButton } from "./brief-generator-button";
 
 export const metadata: Metadata = { title: "CTO Office" };
 
 const EFFORT_LABEL = { S: "Small", M: "Medium", L: "Large" } as const;
+
+const RECOMMENDATION_BADGE: Record<Recommendation, string> = {
+  go: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  go_with_conditions: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  no_go: "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400",
+};
 
 function AgentReportCard({
   agentLabel,
@@ -71,27 +84,55 @@ function AgentReportCard({
 }
 
 export default async function CtoOfficePage() {
-  const [stack, recommendations, deployments, incidents, mission, hyperAgentReport, hermesReport] =
-    await Promise.all([
-      getTechStack(),
-      getCtoRecommendations(),
-      getDeployments(),
-      getIncidents(),
-      getActiveMission(),
-      getLatestReportByAgent("hyperagent"),
-      getLatestReportByAgent("hermes"),
-    ]);
+  const [
+    stack,
+    recommendations,
+    deployments,
+    incidents,
+    mission,
+    hyperAgentReport,
+    hermesReport,
+    standards,
+    playbooks,
+    briefs,
+    engineeringMemory,
+  ] = await Promise.all([
+    getTechStack(),
+    getCtoRecommendations(),
+    getDeployments(),
+    getIncidents(),
+    getActiveMission(),
+    getLatestReportByAgent("hyperagent"),
+    getLatestReportByAgent("hermes"),
+    getEngineeringStandards(),
+    getPlaybooks(),
+    getCtoBriefs(),
+    getEngineeringMemory(),
+  ]);
 
   const timeline = mission ? await getMissionEvents(mission.id) : [];
   const openIncidents = incidents.filter((i) => i.status !== "resolved").length;
   const successful = deployments.filter((d) => d.status === "success").length;
 
+  // Mission #003A — the Recommendation Engine's live verdict for the active
+  // mission, computed from real reports/mission_events, not a canned label.
+  const openBlockers = timeline.filter((e) => e.eventType === "blocker").length;
+  const missionReports = [hyperAgentReport, hermesReport].filter(Boolean) as NonNullable<
+    typeof hyperAgentReport
+  >[];
+  const missionRec = computeRecommendation({
+    pendingReports: missionReports.filter((r) => r.status === "submitted").length,
+    reportsNeedingRevision: missionReports.filter((r) => r.status === "reviewed").length,
+    openBlockers,
+    unresolvedRisks: missionReports.filter((r) => r.risks && r.status !== "actioned").length,
+  });
+
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Engineering"
+        eyebrow="Engineering Headquarters"
         title="CTO Office"
-        description="Current mission, live reports from HyperAgent and Hermes, and the technical decisions on deck."
+        description="Current mission, live reports, the Recommendation Engine's verdict, and the standards/playbooks/memory that keep engineering decisions consistent."
       />
 
       <Card>
@@ -105,10 +146,23 @@ export default async function CtoOfficePage() {
                 {mission.status}
               </Badge>
             ) : null}
+            {mission ? (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px]", RECOMMENDATION_BADGE[missionRec.recommendation])}
+              >
+                {RECOMMENDATION_LABEL[missionRec.recommendation]}
+              </Badge>
+            ) : null}
+            {mission ? (
+              <div className="ml-auto">
+                <BriefGeneratorButton missionId={mission.id} />
+              </div>
+            ) : null}
           </div>
           <CardDescription>
             {mission
-              ? `Owner: ${mission.owner} · Phase: ${mission.phase} · Progress: ${mission.progress}%`
+              ? `Owner: ${mission.owner} · Phase: ${mission.phase} · Progress: ${mission.progress}% — ${missionRec.rationale}`
               : "Create a row in the missions table to see it here."}
           </CardDescription>
         </CardHeader>
@@ -165,6 +219,111 @@ export default async function CtoOfficePage() {
           hint="in CEO Inbox"
         />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Engineering Intelligence</CardTitle>
+          <CardDescription>
+            CTO Briefs, the Engineering Standards Library, CTO Playbooks, and Engineering Memory —
+            the reusable reference layer that reduces manual coordination between the CEO, CTO,
+            HyperAgent, and Hermes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="briefs">
+            <TabsList>
+              <TabsTrigger value="briefs">CTO Briefs</TabsTrigger>
+              <TabsTrigger value="standards">Standards Library</TabsTrigger>
+              <TabsTrigger value="playbooks">Playbooks</TabsTrigger>
+              <TabsTrigger value="memory">Engineering Memory</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="briefs" className="space-y-3 pt-4">
+              {briefs.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No CTO Briefs generated yet. Use &quot;Generate CTO Brief&quot; above to produce
+                  one for the active mission from its real reports and mission events.
+                </p>
+              ) : (
+                briefs.map((b) => (
+                  <div key={b.id} className="rounded-lg border p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold">{b.title}</p>
+                      <Badge
+                        variant="outline"
+                        className={cn("text-[10px]", RECOMMENDATION_BADGE[b.recommendation])}
+                      >
+                        {RECOMMENDATION_LABEL[b.recommendation]}
+                      </Badge>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {new Date(b.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-foreground/90">{b.summary}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{b.rationale}</p>
+                    {b.generatedByName ? (
+                      <p className="mt-1 text-[11px] text-muted-foreground/80">
+                        Generated by {b.generatedByName}
+                      </p>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </TabsContent>
+
+            <TabsContent value="standards" className="space-y-3 pt-4">
+              {standards.map((s) => (
+                <div key={s.id} className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{s.title}</p>
+                    <Badge variant="secondary" className="text-[10px] uppercase">
+                      {s.category}
+                    </Badge>
+                  </div>
+                  <p className="mt-1.5 text-xs text-muted-foreground">{s.content}</p>
+                </div>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="playbooks" className="space-y-3 pt-4">
+              {playbooks.map((p) => (
+                <div key={p.id} className="rounded-lg border p-4">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{p.title}</p>
+                    <Badge variant="secondary" className="text-[10px] uppercase">
+                      {p.category}
+                    </Badge>
+                  </div>
+                  <pre className="mt-1.5 whitespace-pre-wrap text-xs text-muted-foreground">
+                    {p.steps}
+                  </pre>
+                </div>
+              ))}
+            </TabsContent>
+
+            <TabsContent value="memory" className="space-y-3 pt-4">
+              {engineeringMemory.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No engineering memory records yet.</p>
+              ) : (
+                engineeringMemory.map((m) => (
+                  <div key={m.id} className="rounded-lg border p-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold">{m.title}</p>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {m.category}
+                      </Badge>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {new Date(m.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-xs text-muted-foreground">{m.content}</p>
+                  </div>
+                ))
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

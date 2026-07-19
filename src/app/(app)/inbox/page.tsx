@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { getInbox } from "@/lib/data";
+import { computeRecommendation } from "@/lib/recommendation";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
@@ -39,13 +40,26 @@ export default async function InboxPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
-            <DecisionCard
-              key={item.id}
-              item={item}
-              actions={item.reportId ? <InboxActions reportId={item.reportId} /> : null}
-            />
-          ))}
+          {items.map((item) => {
+            // Mission #003A — Decision Card v2: a lightweight, per-report
+            // pass through the same Recommendation Engine used for CTO
+            // Briefs (src/lib/recommendation.ts), so every card also shows
+            // what the Engine would say about it in isolation.
+            const { recommendation } = computeRecommendation({
+              pendingReports: 1,
+              reportsNeedingRevision: 0,
+              openBlockers: 0,
+              unresolvedRisks: item.level === "high" ? 1 : 0,
+            });
+            return (
+              <DecisionCard
+                key={item.id}
+                item={item}
+                recommendation={recommendation}
+                actions={item.reportId ? <InboxActions reportId={item.reportId} /> : null}
+              />
+            );
+          })}
         </div>
       )}
     </div>
