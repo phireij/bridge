@@ -21,6 +21,12 @@ New surfaces:
 
 Everything here targets the new `bridge-hq` Supabase project exclusively. Nothing in this mission reads or writes `ruby-reservations` or any reservation code path; the Ruby reservation system and its RC1 freeze are untouched throughout.
 
+**Mission #002A-4 additions (Bridge HQ Polish):**
+- `src/lib/supabase/bridge-admin.ts` — service-role client (`BRIDGE_SUPABASE_SERVICE_ROLE_KEY`), used exclusively by the credential-rotation action; never used for ordinary reads/writes.
+- `src/app/(app)/settings/credentials-*.ts(x)` — CEO-only Agent Credentials panel: rotates HyperAgent's/Hermes' Supabase Auth password via the Admin API, shows the new password exactly once, logs only the rotation event (never the secret).
+- `src/components/shared/decision-card.tsx` — the standardized card every CEO Inbox approval now renders through.
+- Departments (`departments` table) as first-class entities, with `department_id` on `workforce_status` and `missions`; AI Workforce is now grouped by department, Mission Control shows a Departments summary.
+
 ## 2. Database Schema & RLS Summary
 
 Project: `bridge-hq` (id `uwkxcbadxsuqgdrpkwmg`, org `jqyetjxpqgfmfkazzktw`, ap-northeast-1, free tier). Migrations live in `supabase/bridge/migrations/` in the repo (kept physically separate from `supabase/migrations/`, which is ruby-reservations-only).
@@ -42,6 +48,12 @@ Project: `bridge-hq` (id `uwkxcbadxsuqgdrpkwmg`, org `jqyetjxpqgfmfkazzktw`, ap-
 - `company_memory`: read by all four internal roles; write by CEO/CTO only.
 
 All cross-table role checks reuse one `SECURITY DEFINER` helper, `current_role()`, which resolves `auth.uid()`'s row in `profiles`.
+
+**Mission #002A-4 additions:**
+- `departments` — id, name (unique), description. Read by all four internal roles; write by ceo/cto (`departments_read` / `departments_write`).
+- `workforce_status.department_id`, `missions.department_id` — nullable FKs to `departments`.
+- `credential_rotations` — audit-only table (agent_name, rotated_by, rotated_at, note). `credential_rotations_ceo_only`: CEO-only, full access. Never stores a secret — the rotated password itself only ever exists in the Admin API response and the CEO's own clipboard.
+- Seeded 4 real departments (Executive, Advisory, Engineering & Delivery, Infrastructure & Production Readiness) and backfilled department_id on the existing CEO/CTO/HyperAgent/Hermes workforce rows and the Mission #002A row.
 
 ## 3. Authentication & Role Model
 
@@ -89,12 +101,30 @@ These are entirely distinct from the `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_S
 
 ## 6. Known Limitations
 
-- HyperAgent and Hermes credentials are internal-service accounts created directly in the database (not through normal signup) and currently exist only in this agent's sandboxed session — no durable secret storage or rotation policy yet (Hermes's own test report flagged this; CEO decision pending).
-- No automated test suite (unit/integration) exists for this branch — verification in this mission was done via live Preview click-throughs and direct authenticated REST calls against `bridge-hq`, not a CI-run test suite. `pnpm build`/`typecheck` could not be run locally in this sandbox (no git credentials to clone the private repo); Vercel's own build step is the only automated gate that has run, and it is green as of commit `baf6a3e`.
+- ~~HyperAgent/Hermes credentials had no rotation policy~~ — **resolved in Mission #002A-4**: CEO-only rotation via the Settings > Agent Credentials panel, service-role Admin API, one-time-reveal password, audit-only storage (`credential_rotations`). Policy: rotate every 90 days or immediately on suspected compromise.
+- No automated test suite (unit/integration) exists for this branch — verification across all four missions (#002A through #002A-4) was done via live Preview click-throughs and direct authenticated REST calls against `bridge-hq`, not a CI-run test suite. `pnpm build`/`typecheck` could not be run locally in this sandbox (no git credentials to clone the private repo); Vercel's own build step is the only automated gate that has run — green as of commit `eb2e291`.
 - `workforce_status` has no automatic staleness/offline detection — an agent that stops checking in still shows its last-known status indefinitely.
 - No pagination anywhere yet (reports, mission_events, company_memory) — fine at current volume, will need it before real production load.
 - The Company Memory Mission #001 entry is reconstructed from real, verifiable GitHub PR history (PR #1 and PR #2), not from an actual "Mission #001A CTO report" document — this agent does not have access to that report's original content or a working link to it in this sandbox.
-- Mobile responsiveness has not been explicitly re-verified for the new pages (Mission Control, rewritten AI Workforce/Company Memory) beyond inheriting the existing shell's responsive classes.
+- Mobile QA (Mission #002A-4) was done via live 390×844 viewport screenshots of Headquarters, CEO Inbox (including submitting and approving a real Decision Card), Mission Control, and AI Workforce — all render cleanly. The "All missions" table on Mission Control extends beyond the 390px viewport width (consistent with the pre-existing Tech Stack table pattern on CTO Office) — acceptable via horizontal scroll within the card, not a regression introduced this pass, but worth a dedicated responsive-table pass in v0.2 if it bothers CTO/Hermes on review.
+- Departments are currently 1:1 with the four existing roles — the data model supports many-to-one but that hasn't been exercised yet since there's only one of each agent.
+
+## 9. Release Candidate Status (Mission #002A-4)
+
+**RC label:** Bridge Lite HQ RC1 (branch `feat/bridge-lite-hq`, latest commit `eb2e291`, Vercel build green).
+
+| Checklist item | Status |
+|---|---|
+| P0/P1 security corrections (CTO review #002A-2) | Done, negative-tested live |
+| Full agent workflow (real HyperAgent + Hermes reports → CTO Office → CEO Inbox → decision → audit trail) | Done, verified live with the CEO's real session |
+| Mission Control, AI Workforce, Company Memory on live data | Done, verified live |
+| Credential rotation strategy | Done — CEO-only, one-time reveal, audit-only storage; verified live (rotated HyperAgent's real password successfully) |
+| Departments as first-class entities | Done — 4 real departments seeded, workforce/missions backfilled, verified live |
+| Standardized Decision Card | Done — single `DecisionCard` component, all CEO Inbox items render through it |
+| Executive-readability UI polish | Modest pass — clearer priority labels on Decision Cards, no workflow changes |
+| Mobile QA | Done — see Known Limitations for the one pre-existing table-overflow note |
+| Production/reservation isolation | Confirmed throughout |
+| Merge status | **Not merged. PR #3 remains in draft per explicit instruction.** Stopping for final CTO and Hermes review before requesting merge approval. |
 
 ## 7. Rollback Procedure
 
