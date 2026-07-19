@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
-import { rotateAgentCredential, type RotatableAgent } from "./credentials-actions";
+import { rotateAgentCredential } from "./credentials-actions";
+import type { RotatableAgent } from "./credentials-types";
 
 const LABEL: Record<RotatableAgent, string> = {
   hyperagent: "HyperAgent",

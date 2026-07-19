@@ -4,8 +4,7 @@ import { randomBytes } from "crypto";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { createBridgeAdminClient } from "@/lib/supabase/bridge-admin";
 import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
-
-export type RotatableAgent = "hyperagent" | "hermes";
+import type { RotatableAgent } from "./credentials-types";
 
 const AGENT_EMAIL: Record<RotatableAgent, string> = {
   hyperagent: "hyperagent@bridgehq.example",
