@@ -1,35 +1,64 @@
 /**
- * Refreshes the Bridge HQ Supabase session on every request and gates the
- * authenticated app shell. Unauthenticated visitors to any `(app)` route are
- * redirected to /login. `/login`, `/reserve` (public reservation flow),
- * `/admin` (Ruby staff admin, its own passcode gate), static assets, and
- * Next.js internals are left alone.
+ * Host-aware middleware — two modes:
  *
- * All `/api/*` routes are also left alone here: they are called with an
- * `Authorization: Bearer <token>` header (HyperAgent/Hermes's own Supabase
- * session), not a browser cookie session, so this cookie-based redirect
- * would otherwise 302 every agent API call to /login. Each API route is
- * responsible for validating its own Bearer token (see src/app/api/reports/
- * route.ts) — this middleware's job is the cookie-session page gate only.
+ * 1. Reservation domain (reservations.rubyscakedelights.shop):
+ *    Only /reserve and /admin are valid.  Everything else (root, /login,
+ *    Bridge HQ routes) redirects to /reserve.  The reservation domain
+ *    must never expose Bridge HQ authentication.
+ *
+ * 2. Bridge HQ hostname (Vercel Production/Preview URL):
+ *    Existing behavior: Supabase Auth gate on (app) routes; /login,
+ *    /reserve, /admin, /api are public.
+ *
+ * All /api/* routes are left alone: they use Bearer tokens
+ * (HyperAgent/Hermes Supabase sessions), not browser cookies.
  */
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const PUBLIC_PATHS = ["/login", "/reserve", "/admin", "/api"];
+const RESERVATION_HOST = "reservations.rubyscakedelights.shop";
 
-function isPublicPath(pathname: string) {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+/** Bridge HQ routes that must NOT be accessible from the reservation domain. */
+const BRIDGE_ONLY_PATHS = [
+  "/login", "/inbox", "/cto", "/missions", "/memory", "/workforce",
+  "/settings", "/reports",
+];
+
+/** Public on any hostname — reservation flow and Ruby staff admin. */
+const ALWAYS_PUBLIC = ["/reserve", "/admin", "/api"];
+
+function isReservationHost(hostname: string): boolean {
+  return hostname === RESERVATION_HOST;
+}
+
+function matchPath(pathname: string, patterns: string[]): boolean {
+  return patterns.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hostname = request.headers.get("host") ?? "";
+
+  // ── Reservation domain routing ────────────────────────────────────
+  if (isReservationHost(hostname)) {
+    // Root → /reserve
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/reserve", request.url));
+    }
+    // /login or any Bridge-only route → /reserve
+    if (matchPath(pathname, BRIDGE_ONLY_PATHS) || pathname === "/login") {
+      return NextResponse.redirect(new URL("/reserve", request.url));
+    }
+    // /reserve and /admin pass through
+    return NextResponse.next({ request });
+  }
+
+  // ── Bridge HQ routing (Vercel Production / Preview) ───────────────
   let response = NextResponse.next({ request });
 
   const url = process.env.NEXT_PUBLIC_BRIDGE_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_BRIDGE_SUPABASE_ANON_KEY;
 
-  // Bridge HQ Supabase not configured on this environment — fail safe by
-  // leaving routes as-is rather than crashing every request. The (app)
-  // layout also independently gates on a resolved profile.
   if (!url || !anonKey) {
     return response;
   }
@@ -50,9 +79,8 @@ export async function middleware(request: NextRequest) {
   });
 
   const { data } = await supabase.auth.getUser();
-  const { pathname } = request.nextUrl;
 
-  if (!data.user && !isPublicPath(pathname)) {
+  if (!data.user && !matchPath(pathname, ALWAYS_PUBLIC)) {
     const redirectUrl = new URL("/login", request.url);
     redirectUrl.searchParams.set("next", pathname);
     return NextResponse.redirect(redirectUrl);
