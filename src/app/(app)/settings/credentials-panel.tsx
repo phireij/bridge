@@ -22,7 +22,7 @@ function AgentRotateRow({ agent }: { agent: RotatableAgent }) {
     startTransition(async () => {
       try {
         const result = await rotateAgentCredential(agent);
-        setReveal(result);
+        setReveal({ password: result.newPassword, rotatedAt: result.rotatedAt });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Rotation failed.");
       }
