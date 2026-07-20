@@ -17,6 +17,16 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
   control — see Freeze rules below.
 - `feat/bridge-lite-hq` — Mission #002A (Bridge Lite Operational HQ), own isolated
   Vercel preview.
+- `feat/mission-003a-cto-intelligence` — Mission #003A (CTO Office Intelligence
+  Framework: Recommendation Engine, CTO Brief Generator, Engineering Standards Library,
+  CTO Playbooks, Engineering Memory, Decision Card v2). Draft PR #6 into
+  `feat/bridge-v0.1`, NOT merged — awaiting CTO review.
+- `feat/mission-004a-cto-review-automation` — Mission #004A (CTO Integration & Review
+  Automation: CTO Review Package generator, Pre-Review Gate, CTO Decision Import,
+  Engineering Inbox, Mission Timeline). Draft PR #7, stacked into
+  `feat/mission-003a-cto-intelligence` (since it depends on that mission's cto_briefs /
+  Recommendation Engine), NOT merged. Own isolated Vercel preview. See the CTO handoff
+  doc for this mission for full detail.
 
 ## Supabase projects — do not cross-wire
 
@@ -25,8 +35,8 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
   (`kaasunbxmykuxagdnowq`) is paused and unused.
 - `bridge-hq` (id `uwkxcbadxsuqgdrpkwmg`, org `jqyetjxpqgfmfkazzktw`, ap-northeast-1) —
   Bridge Lite Operational HQ only (CEO Inbox, CTO Office, Mission Control, AI Workforce,
-  Company Memory, report intake, audit trail). Never point Bridge HQ code at
-  `ruby-reservations`, or vice versa.
+  Company Memory, report intake, audit trail, CTO decision imports). Never point Bridge
+  HQ code at `ruby-reservations`, or vice versa.
 
 ## Guardrails (never violate without explicit CEO approval)
 
@@ -40,6 +50,9 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
   data. Missing config -> user sees "unavailable"; never silently accept writes.
 - Bridge Lite work must never disrupt the Ruby reservation system (separate branch,
   separate Supabase project, separate env vars).
+- Never auto-approve, auto-merge, or auto-deploy based only on an imported CTO decision
+  (Mission #004A) — a human confirmation step and, separately, an explicit CEO approval
+  are always required.
 
 ## Freeze rules — Ruby reservation system (Mission #001H)
 
@@ -59,6 +72,11 @@ reservation branch, tables, or Supabase project.
 - `docs/DEPLOYMENT.md` — required env vars, transactional email, fail-safe behavior,
   go-live steps (currently documents the Ruby reservation deployment).
 - `src/lib/data/` — typed seed data + async getters; pages only import from here.
+- `src/lib/recommendation.ts`, `src/lib/review-gate.ts` — pure, deterministic engines
+  (Recommendation Engine, Pre-Review Gate). Not database tables, not AI calls — extend
+  the rules in these files directly if a mission needs more nuance.
+- `src/lib/decision-import.ts`, `src/lib/review-package.ts`, `src/lib/mission-review.ts`
+  — Mission #004A: deterministic CTO decision parsing and CTO Review Package generation.
 - `supabase/migrations/` — reservation system migrations (applied to `ruby-reservations`
   only). Bridge Lite HQ migrations live under `supabase/bridge/migrations/` and apply to
   `bridge-hq` only — keep these directories and their target projects separate.
