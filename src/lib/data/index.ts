@@ -20,17 +20,22 @@ import { services, vpsResources } from "./infrastructure";
 import { ruby } from "./ruby";
 import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import type {
+  AiProviderCheckRecord,
+  CeoRequestRecord,
   CompanyMemoryRecord,
   CtoBriefRecord,
   CtoDecisionImportRecord,
+  CtoProposalRecord,
   DecisionRecord,
   DepartmentRecord,
   EngineeringInboxRow,
   EngineeringStandardRecord,
   InboxItem,
+  MessageBusEventRecord,
   MissionEventRecord,
   MissionRecord,
   MissionTimelineEntry,
+  NotificationRecord,
   PlaybookRecord,
   ReportRecord,
   WorkforceStatusRecord,
@@ -510,6 +515,121 @@ export async function getMissionTimeline(missionId: string): Promise<MissionTime
   ];
 
   return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+// ── Bridge Core Orchestration (Mission #005A — live Supabase) ──────────────
+
+export async function getCeoRequests(): Promise<CeoRequestRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("ceo_requests")
+    .select("*, missions(code), profiles(display_name)")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    title: r.title,
+    rawText: r.raw_text,
+    status: r.status,
+    missionId: r.mission_id,
+    missionCode: (r.missions as unknown as { code: string } | null)?.code ?? null,
+    submittedByName: (r.profiles as unknown as { display_name: string } | null)?.display_name ?? null,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }));
+}
+
+export async function getCeoRequestById(id: string): Promise<CeoRequestRecord | null> {
+  const all = await getCeoRequests();
+  return all.find((r) => r.id === id) ?? null;
+}
+
+export async function getCtoProposalsByRequest(ceoRequestId: string): Promise<CtoProposalRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("cto_proposals")
+    .select("*, profiles(display_name)")
+    .eq("ceo_request_id", ceoRequestId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((p) => ({
+    id: p.id,
+    ceoRequestId: p.ceo_request_id,
+    provider: p.provider,
+    model: p.model,
+    proposalText: p.proposal_text,
+    recommendedDelegation: p.recommended_delegation,
+    riskNotes: p.risk_notes,
+    estimatedCostUsd: p.estimated_cost_usd,
+    generatedByName: (p.profiles as unknown as { display_name: string } | null)?.display_name ?? null,
+    createdAt: p.created_at,
+  }));
+}
+
+export async function getMessageBusEvents(ceoRequestId?: string): Promise<MessageBusEventRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  let query = supabase.from("message_bus_events").select("*").order("created_at", { ascending: false });
+  if (ceoRequestId) query = query.eq("ceo_request_id", ceoRequestId);
+  const { data } = await query.limit(100);
+
+  return (data ?? []).map((e) => ({
+    id: e.id,
+    ceoRequestId: e.ceo_request_id,
+    fromActor: e.from_actor,
+    toActor: e.to_actor,
+    messageType: e.message_type,
+    summary: e.summary,
+    status: e.status,
+    retryCount: e.retry_count,
+    lastError: e.last_error,
+    createdAt: e.created_at,
+    updatedAt: e.updated_at,
+  }));
+}
+
+export async function getNotifications(): Promise<NotificationRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("notifications")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return (data ?? []).map((n) => ({
+    id: n.id,
+    ceoRequestId: n.ceo_request_id,
+    recipientRole: n.recipient_role,
+    title: n.title,
+    body: n.body,
+    readAt: n.read_at,
+    createdAt: n.created_at,
+  }));
+}
+
+export async function getUnreadNotificationCount(): Promise<number> {
+  const notifications = await getNotifications();
+  return notifications.filter((n) => !n.readAt).length;
+}
+
+export async function getAiProviderChecks(): Promise<AiProviderCheckRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("ai_provider_checks")
+    .select("*, profiles(display_name)");
+
+  return (data ?? []).map((c) => ({
+    providerId: c.provider_id,
+    activeModel: c.active_model,
+    healthy: c.healthy,
+    lastError: c.last_error,
+    checkedByName: (c.profiles as unknown as { display_name: string } | null)?.display_name ?? null,
+    checkedAt: c.checked_at,
+  }));
 }
 
 // ── Infrastructure ───────────────────────────────────────────────────────────

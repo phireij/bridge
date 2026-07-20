@@ -6,6 +6,15 @@ agent (HyperAgent, Hermes, or other) working in this repo. Read this before maki
 changes. Deeper history: see the Mission #001A CTO report (ask the CEO for the current
 public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
 
+## Business priority (Mission #005A context, reaffirmed)
+
+The only business objective until Ruby's Cake Delights' 3rd Anniversary is supporting
+Ruby's Cake Delights. Any functionality unrelated to that objective is deferred unless
+explicitly approved by the CEO. Mission #005A's source document referenced a "Church
+Workspace" and "Paperclip integration" that appear nowhere else in this repo's history —
+those were flagged to the CEO and disregarded as out of scope / unverified, not built.
+If either surfaces again in a future mission doc, flag it again before acting.
+
 ## Repo & deployments
 
 - Private repo: `phireij/bridge`.
@@ -24,9 +33,12 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
 - `feat/mission-004a-cto-review-automation` — Mission #004A (CTO Integration & Review
   Automation: CTO Review Package generator, Pre-Review Gate, CTO Decision Import,
   Engineering Inbox, Mission Timeline). Draft PR #7, stacked into
-  `feat/mission-003a-cto-intelligence` (since it depends on that mission's cto_briefs /
-  Recommendation Engine), NOT merged. Own isolated Vercel preview. See the CTO handoff
-  doc for this mission for full detail.
+  `feat/mission-003a-cto-intelligence`, NOT merged. Own isolated Vercel preview. See the
+  CTO handoff doc for this mission for full detail.
+- `feat/mission-005a-core-orchestration` — Mission #005A (Bridge Core Orchestration,
+  MVP slice: Executive Assistant, Bridge CTO Agent, AI Message Bus, Notification
+  Center). Draft PR #8, stacked into `feat/mission-004a-cto-review-automation`, NOT
+  merged. Own isolated Vercel preview.
 
 ## Supabase projects — do not cross-wire
 
@@ -35,8 +47,22 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
   (`kaasunbxmykuxagdnowq`) is paused and unused.
 - `bridge-hq` (id `uwkxcbadxsuqgdrpkwmg`, org `jqyetjxpqgfmfkazzktw`, ap-northeast-1) —
   Bridge Lite Operational HQ only (CEO Inbox, CTO Office, Mission Control, AI Workforce,
-  Company Memory, report intake, audit trail, CTO decision imports). Never point Bridge
-  HQ code at `ruby-reservations`, or vice versa.
+  Company Memory, report intake, audit trail, CTO decision imports, Mission #005A
+  orchestration tables). Never point Bridge HQ code at `ruby-reservations`, or vice versa.
+
+## AI provider credentials (Mission #005A)
+
+Provider API keys (`OPENAI_API_KEY`, `GEMINI_API_KEY`, `KIMI_API_KEY`) live only as
+Vercel environment variables, read server-side inside `src/lib/ai-providers/*.ts`. They
+are never stored in Supabase, never returned from a server action, never logged, and
+never shown in any UI — the Settings page's "AI Providers" panel only shows
+configured/missing, active model, and an on-demand connection-check result (stored in
+`ai_provider_checks`, which holds zero secret material). Do not build a key-entry field
+anywhere in Bridge; keys are added/rotated directly in Vercel by the CEO.
+
+Only OpenAI is implemented for real (the Bridge CTO Agent). Gemini/Kimi are stubs behind
+the same `AIProvider` interface so a future CMO Agent (explicitly out of Mission #005A
+MVP scope) or any other provider swap never requires touching calling code.
 
 ## Vercel production deploys — manual promotion is intentional (Mission #004A)
 
@@ -60,14 +86,27 @@ Both production custom domains (`reservations.rubyscakedelights.shop` and
 "Auto-assign Custom Production Domains" enabled — domain reattachment on promotion is
 not the issue; only the branch-tracking trigger is.
 
+## Automatic HyperAgent/Hermes pickup (Mission #005A)
+
+There is no webhook trigger configured for the HyperAgent (PhiReij Head Engineer) agent,
+so Bridge cannot push work to it instantly. Instead, a scheduled invocation (added via
+agent config, requires the CEO's card approval, separate from this repo) polls
+`mission_events` for `delegation_requested` entries roughly every 30 minutes, works any
+that don't already have a matching report, spawns a Hermes-persona subagent when review
+is recommended, and files a report through the existing `reports`/`/api/reports` path —
+reusing Mission #002A's machinery rather than inventing a new one. If that scheduled
+invocation is ever paused or removed, delegated work will sit in `mission_events` until
+someone manually triggers HyperAgent.
+
 ## Guardrails (never violate without explicit CEO approval)
 
 - No production merge, DNS change, secret rotation, destructive DB action, or paid
   commitment without CEO approval.
 - Work on dedicated branches or clearly separated commits. Never destabilize a live
   preview. Never merge to production without CTO/CEO review.
-- Secrets (service-role keys, API keys, admin passcodes) never appear in chat, in
-  client-side bundles, or in this file's values — only env var names are referenced.
+- Secrets (service-role keys, API keys, admin passcodes, AI provider keys) never appear
+  in chat, in client-side bundles, in Supabase, or in this file's values — only env var
+  names are referenced.
 - Fail-safe over silent fallback: deployed environments never fall back to seed/in-memory
   data. Missing config -> user sees "unavailable"; never silently accept writes.
 - Bridge Lite work must never disrupt the Ruby reservation system (separate branch,
@@ -78,6 +117,11 @@ not the issue; only the branch-tracking trigger is.
 - Never change Vercel's Production Branch Tracking (currently `main`) without explicit
   CEO approval — see "Vercel production deploys" above; the manual promotion step is a
   deliberate review gate, not a bug.
+- Never build a key-entry field for AI provider credentials anywhere in Bridge — see
+  "AI provider credentials" above.
+- The Executive Assistant / scheduled orchestration run never makes a business decision
+  on the CEO's behalf — only ever escalates meaningful blockers as a report requesting
+  CEO input.
 
 ## Freeze rules — Ruby reservation system (Mission #001H)
 
@@ -102,6 +146,10 @@ reservation branch, tables, or Supabase project.
   the rules in these files directly if a mission needs more nuance.
 - `src/lib/decision-import.ts`, `src/lib/review-package.ts`, `src/lib/mission-review.ts`
   — Mission #004A: deterministic CTO decision parsing and CTO Review Package generation.
+- `src/lib/ai-providers/` — Mission #005A: the unified AI provider interface (OpenAI
+  live, Gemini/Kimi stubs). See "AI provider credentials" above.
+- `src/app/(app)/orchestration/` — Mission #005A: CEO Dashboard + Notification Center
+  (CEO Requests, Bridge CTO Agent proposals, Message Bus feed, notifications).
 - `supabase/migrations/` — reservation system migrations (applied to `ruby-reservations`
   only). Bridge Lite HQ migrations live under `supabase/bridge/migrations/` and apply to
   `bridge-hq` only — keep these directories and their target projects separate.
@@ -111,7 +159,11 @@ reservation branch, tables, or Supabase project.
 CEO/founder: Philip. CTO: an external agent, reviews via mission documents; cannot join
 this workspace, so handoffs are portable Markdown/links. HyperAgent and Hermes are the
 two working agents; "Hermes" is an infrastructure/production-readiness reviewer role,
-not a general engineering duplicate of HyperAgent.
+not a general engineering duplicate of HyperAgent. The in-Bridge "Bridge CTO Agent"
+(Mission #005A, OpenAI-powered) is a distinct, separate concept from this external CTO —
+it handles day-to-day request analysis inside Bridge; the external CTO still owns deep
+mission/PR review (e.g. PR #6, #7, #8 all await that CTO's sign-off, not the Bridge CTO
+Agent's).
 
 ## Note on this file's integrity (2026-07-19)
 

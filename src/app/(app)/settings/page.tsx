@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
-import { getCompany } from "@/lib/data";
+import { getAiProviderChecks, getCompany } from "@/lib/data";
+import { listProviderStatuses } from "@/lib/ai-providers";
 import { getCurrentProfile } from "@/lib/auth/session";
 import { site } from "@/config/site";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -16,6 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { AppearanceControl } from "@/components/settings/appearance";
 import { CredentialsPanel } from "./credentials-panel";
+import { ProviderStatusPanel } from "./provider-status-panel";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -45,7 +47,12 @@ function IntegrationBadge({ state }: { state: IntegrationState }) {
 }
 
 export default async function SettingsPage() {
-  const [company, profile] = await Promise.all([getCompany(), getCurrentProfile()]);
+  const [company, profile, providerStatuses, providerChecks] = await Promise.all([
+    getCompany(),
+    getCurrentProfile(),
+    Promise.resolve(listProviderStatuses()),
+    getAiProviderChecks(),
+  ]);
 
   const profileFields = [
     { label: "Name", value: profile?.displayName ?? site.ceo.name },
@@ -53,6 +60,8 @@ export default async function SettingsPage() {
     { label: "Headquarters", value: company.hq },
     { label: "Time zone", value: company.timezone },
   ];
+
+  const isCeoOrCto = profile?.role === "ceo" || profile?.role === "cto";
 
   return (
     <div className="space-y-6">
@@ -117,6 +126,22 @@ export default async function SettingsPage() {
           </CardHeader>
           <CardContent>
             <CredentialsPanel />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {isCeoOrCto ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>AI Providers</CardTitle>
+            <CardDescription>
+              Mission #005A — the unified provider interface behind the Bridge CTO Agent (and any
+              future agent on a different model). Keys live only as Vercel environment variables;
+              this panel never asks for or displays one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ProviderStatusPanel statuses={providerStatuses} checks={providerChecks} />
           </CardContent>
         </Card>
       ) : null}

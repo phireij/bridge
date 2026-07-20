@@ -8,6 +8,7 @@ import {
   Rocket,
   Server,
   Settings,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,6 +39,12 @@ export const navItems: NavItem[] = [
     icon: Inbox,
     description: "Approvals, recommendations, and messages awaiting your call.",
     badgeKey: "inbox",
+  },
+  {
+    title: "Orchestration",
+    href: "/orchestration",
+    icon: Workflow,
+    description: "Submit a request, review the Bridge CTO Agent's proposal, approve, and delegate.",
   },
   {
     title: "CTO Office",
