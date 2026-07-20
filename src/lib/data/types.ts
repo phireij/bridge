@@ -420,3 +420,77 @@ export interface MissionTimelineEntry {
   createdAt: string;
   auditRef: string;
 }
+
+// ── Bridge Core Orchestration (Mission #005A) ───────────────────────────────
+
+export type CeoRequestStatus =
+  | "submitted"
+  | "analyzing"
+  | "proposed"
+  | "approved"
+  | "rejected"
+  | "delegated"
+  | "in_progress"
+  | "completed";
+
+export interface CeoRequestRecord {
+  id: string;
+  title: string;
+  rawText: string;
+  status: CeoRequestStatus;
+  missionId: string | null;
+  missionCode: string | null;
+  submittedByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DelegationTarget = "hyperagent" | "hermes" | "both";
+
+export interface CtoProposalRecord {
+  id: string;
+  ceoRequestId: string;
+  provider: string;
+  model: string;
+  proposalText: string;
+  recommendedDelegation: DelegationTarget;
+  riskNotes: string | null;
+  estimatedCostUsd: number | null;
+  generatedByName: string | null;
+  createdAt: string;
+}
+
+export type MessageBusStatus = "pending" | "delivered" | "failed" | "retrying";
+
+export interface MessageBusEventRecord {
+  id: string;
+  ceoRequestId: string | null;
+  fromActor: string;
+  toActor: string;
+  messageType: string;
+  summary: string;
+  status: MessageBusStatus;
+  retryCount: number;
+  lastError: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NotificationRecord {
+  id: string;
+  ceoRequestId: string | null;
+  recipientRole: HqRole;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
+}
+
+export interface AiProviderCheckRecord {
+  providerId: string;
+  activeModel: string | null;
+  healthy: boolean | null;
+  lastError: string | null;
+  checkedByName: string | null;
+  checkedAt: string;
+}
