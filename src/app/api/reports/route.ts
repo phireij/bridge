@@ -11,6 +11,12 @@
  *
  * Required report fields per the mission brief: agent, mission, summary,
  * evidence, risks, recommendation, requested decision, related links/files.
+ *
+ * Mission #004A: emits the `report_submitted` mission_events entry (renamed
+ * from the generic `report` type used at launch, to match the mission's
+ * named notification events) plus `hermes_review_ready` when a Hermes report
+ * lands, so the Engineering Inbox and Mission Timeline have a real signal to
+ * read instead of re-deriving it from report rows alone.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -93,12 +99,22 @@ export async function POST(request: NextRequest) {
   }
 
   if (missionId) {
+    const actorLabel = agent === "hyperagent" ? "HyperAgent" : "Hermes";
     await supabase.from("mission_events").insert({
       mission_id: missionId,
-      event_type: "report",
-      description: `${agent === "hyperagent" ? "HyperAgent" : "Hermes"} submitted a report: ${summary}`,
-      actor: agent === "hyperagent" ? "HyperAgent" : "Hermes",
+      event_type: "report_submitted",
+      description: `${actorLabel} submitted a report: ${summary}`,
+      actor: actorLabel,
     });
+
+    if (agent === "hermes") {
+      await supabase.from("mission_events").insert({
+        mission_id: missionId,
+        event_type: "hermes_review_ready",
+        description: `Hermes review is ready: ${summary}`,
+        actor: actorLabel,
+      });
+    }
   }
 
   return NextResponse.json({ id: inserted.id, status: "submitted" }, { status: 201 });
