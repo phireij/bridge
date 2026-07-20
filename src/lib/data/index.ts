@@ -22,12 +22,15 @@ import { createBridgeServerClient } from "@/lib/supabase/bridge-server";
 import type {
   CompanyMemoryRecord,
   CtoBriefRecord,
+  CtoDecisionImportRecord,
   DecisionRecord,
   DepartmentRecord,
+  EngineeringInboxRow,
   EngineeringStandardRecord,
   InboxItem,
   MissionEventRecord,
   MissionRecord,
+  MissionTimelineEntry,
   PlaybookRecord,
   ReportRecord,
   WorkforceStatusRecord,
@@ -143,6 +146,11 @@ export async function getReports(): Promise<ReportRecord[]> {
   }));
 }
 
+export async function getReportsByMission(missionId: string): Promise<ReportRecord[]> {
+  const reports = await getReports();
+  return reports.filter((r) => r.missionId === missionId);
+}
+
 export async function getLatestReportByAgent(
   agent: "hyperagent" | "hermes",
 ): Promise<ReportRecord | null> {
@@ -214,6 +222,11 @@ export async function getDecisionsAudit(): Promise<DecisionRecord[]> {
     notes: d.notes,
     createdAt: d.created_at,
   }));
+}
+
+export async function getDecisionsByMission(missionId: string): Promise<DecisionRecord[]> {
+  const all = await getDecisionsAudit();
+  return all.filter((d) => d.missionId === missionId);
 }
 
 export async function getWorkforceStatus(): Promise<WorkforceStatusRecord[]> {
@@ -327,6 +340,11 @@ export async function getCtoBriefs(): Promise<CtoBriefRecord[]> {
   }));
 }
 
+export async function getCtoBriefsByMission(missionId: string): Promise<CtoBriefRecord[]> {
+  const all = await getCtoBriefs();
+  return all.filter((b) => b.missionId === missionId);
+}
+
 /**
  * "Engineering Memory" (Mission #003A) is deliberately a filtered read of
  * the existing company_memory table, not a new parallel store — one source
@@ -339,6 +357,159 @@ export async function getEngineeringMemory(): Promise<CompanyMemoryRecord[]> {
   const memory = await getCompanyMemory();
   const engineeringCategories = new Set(["architecture_decision", "operating_rule", "lesson_learned"]);
   return memory.filter((m) => engineeringCategories.has(m.category));
+}
+
+// ── CTO Integration & Review Automation (Mission #004A — live Supabase) ────
+
+export async function getCtoDecisionImports(): Promise<CtoDecisionImportRecord[]> {
+  if (!bridgeHqConfigured()) return [];
+  const supabase = await createBridgeServerClient();
+  const { data } = await supabase
+    .from("cto_decision_imports")
+    .select("*, profiles(display_name)")
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map((d) => ({
+    id: d.id,
+    missionId: d.mission_id,
+    ctoBriefId: d.cto_brief_id,
+    rawText: d.raw_text,
+    decision: d.decision,
+    conditions: d.conditions,
+    risks: d.risks,
+    requiredActions: d.required_actions,
+    confidence: d.confidence,
+    approvalStatus: d.approval_status,
+    importedByName: (d.profiles as unknown as { display_name: string } | null)?.display_name ?? null,
+    confirmedAt: d.confirmed_at,
+    createdAt: d.created_at,
+  }));
+}
+
+export async function getCtoDecisionImportsByMission(
+  missionId: string,
+): Promise<CtoDecisionImportRecord[]> {
+  const all = await getCtoDecisionImports();
+  return all.filter((d) => d.missionId === missionId);
+}
+
+/**
+ * The Engineering Inbox (Mission #004A): one mission-centered view of
+ * HyperAgent, Hermes, CTO, and CEO status, blockers, timestamps, and next
+ * owner. Composed entirely from existing reports/mission_events/decisions —
+ * no new table, matching the mission's "reuse, don't duplicate" rule.
+ */
+export async function getEngineeringInbox(missionId: string): Promise<EngineeringInboxRow[]> {
+  const [reports, events, decisionsAudit, imports] = await Promise.all([
+    getReportsByMission(missionId),
+    getMissionEvents(missionId),
+    getDecisionsByMission(missionId),
+    getCtoDecisionImportsByMission(missionId),
+  ]);
+
+  const hyperAgentReport = reports.find((r) => r.agent === "hyperagent") ?? null;
+  const hermesReport = reports.find((r) => r.agent === "hermes") ?? null;
+  const latestImport = imports[0] ?? null;
+  const latestDecision = decisionsAudit[0] ?? null;
+  const openBlockers = events.filter((e) => e.eventType === "blocker");
+  const reviewRequested = events.some((e) => e.eventType === "cto_review_requested");
+
+  const rows: EngineeringInboxRow[] = [
+    {
+      role: "hyperagent",
+      roleLabel: "HyperAgent",
+      status: hyperAgentReport?.status ?? "no report yet",
+      blocker: openBlockers.find((b) => b.actor === "HyperAgent")?.description ?? null,
+      lastUpdate: hyperAgentReport?.createdAt ?? null,
+      nextOwner: !hyperAgentReport || hyperAgentReport.status === "reviewed",
+    },
+    {
+      role: "hermes",
+      roleLabel: "Hermes",
+      status: hermesReport?.status ?? "no report yet",
+      blocker: openBlockers.find((b) => b.actor === "Hermes")?.description ?? null,
+      lastUpdate: hermesReport?.createdAt ?? null,
+      nextOwner: Boolean(hyperAgentReport) && !hermesReport,
+    },
+    {
+      role: "cto",
+      roleLabel: "CTO",
+      status: latestImport ? latestImport.approvalStatus : reviewRequested ? "review requested" : "not yet requested",
+      blocker: null,
+      lastUpdate: latestImport?.createdAt ?? null,
+      nextOwner: reviewRequested && !latestImport,
+    },
+    {
+      role: "ceo",
+      roleLabel: "CEO",
+      status: latestDecision?.action ?? "no decision yet",
+      blocker: null,
+      lastUpdate: latestDecision?.createdAt ?? null,
+      nextOwner: Boolean(latestImport) && !latestDecision,
+    },
+  ];
+
+  return rows;
+}
+
+/**
+ * The Mission Timeline (Mission #004A): every submitted report, review,
+ * decision, revision, and approval, in chronological order with audit
+ * references — a read-time merge of existing tables, not a new one.
+ */
+export async function getMissionTimeline(missionId: string): Promise<MissionTimelineEntry[]> {
+  const [reports, events, decisionsAudit, briefs, imports] = await Promise.all([
+    getReportsByMission(missionId),
+    getMissionEvents(missionId),
+    getDecisionsByMission(missionId),
+    getCtoBriefsByMission(missionId),
+    getCtoDecisionImportsByMission(missionId),
+  ]);
+
+  const entries: MissionTimelineEntry[] = [
+    ...reports.map((r) => ({
+      id: `report-${r.id}`,
+      kind: "report" as const,
+      actor: r.agent === "hyperagent" ? "HyperAgent" : "Hermes",
+      summary: `Report ${r.status}: ${r.summary}`,
+      createdAt: r.createdAt,
+      auditRef: `reports:${r.id}`,
+    })),
+    ...events.map((e) => ({
+      id: `event-${e.id}`,
+      kind: "event" as const,
+      actor: e.actor,
+      summary: `[${e.eventType}] ${e.description}`,
+      createdAt: e.createdAt,
+      auditRef: `mission_events:${e.id}`,
+    })),
+    ...decisionsAudit.map((d) => ({
+      id: `decision-${d.id}`,
+      kind: "decision" as const,
+      actor: d.actorName,
+      summary: `Decision: ${d.action}${d.notes ? ` — ${d.notes}` : ""}`,
+      createdAt: d.createdAt,
+      auditRef: `decisions:${d.id}`,
+    })),
+    ...briefs.map((b) => ({
+      id: `brief-${b.id}`,
+      kind: "brief" as const,
+      actor: b.generatedByName ?? "System",
+      summary: `CTO Brief generated: ${b.recommendation.replace(/_/g, " ").toUpperCase()}`,
+      createdAt: b.createdAt,
+      auditRef: `cto_briefs:${b.id}`,
+    })),
+    ...imports.map((i) => ({
+      id: `import-${i.id}`,
+      kind: "cto_decision_import" as const,
+      actor: i.importedByName ?? "CEO",
+      summary: `CTO decision imported: ${i.approvalStatus.replace(/_/g, " ")}`,
+      createdAt: i.createdAt,
+      auditRef: `cto_decision_imports:${i.id}`,
+    })),
+  ];
+
+  return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 // ── Infrastructure ───────────────────────────────────────────────────────────

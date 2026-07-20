@@ -6,14 +6,17 @@ import {
   getCtoBriefs,
   getCtoRecommendations,
   getDeployments,
+  getEngineeringInbox,
   getEngineeringMemory,
   getEngineeringStandards,
   getIncidents,
   getLatestReportByAgent,
   getMissionEvents,
+  getMissionTimeline,
   getPlaybooks,
   getTechStack,
 } from "@/lib/data";
+import { getMissionGate } from "@/lib/mission-review";
 import { computeRecommendation, RECOMMENDATION_LABEL, type Recommendation } from "@/lib/recommendation";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +40,10 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge, StatusDot } from "@/components/shared/status-badge";
 import { BriefGeneratorButton } from "./brief-generator-button";
+import { ReviewPackagePanel } from "./review-package-panel";
+import { DecisionImportForm } from "./decision-import-form";
+import { EngineeringInbox } from "./engineering-inbox";
+import { MissionTimeline } from "./mission-timeline";
 
 export const metadata: Metadata = { title: "CTO Office" };
 
@@ -113,6 +120,17 @@ export default async function CtoOfficePage() {
   const timeline = mission ? await getMissionEvents(mission.id) : [];
   const openIncidents = incidents.filter((i) => i.status !== "resolved").length;
   const successful = deployments.filter((d) => d.status === "success").length;
+
+  // Mission #004A — Engineering Inbox, Mission Timeline, and Pre-Review Gate
+  // for the active mission. All composed reads over existing tables.
+  const [gate, inboxRows, missionTimelineEntries] = mission
+    ? await Promise.all([
+        getMissionGate(mission.id),
+        getEngineeringInbox(mission.id),
+        getMissionTimeline(mission.id),
+      ])
+    : [{ ready: false, missing: [] }, [], []];
+  const missionBriefs = briefs.filter((b) => b.missionId === mission?.id);
 
   // Mission #003A — the Recommendation Engine's live verdict for the active
   // mission, computed from real reports/mission_events, not a canned label.
@@ -219,6 +237,61 @@ export default async function CtoOfficePage() {
           hint="in CEO Inbox"
         />
       </div>
+
+      {mission ? (
+        <Card>
+          <CardHeader>
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle>CTO Integration & Review Automation</CardTitle>
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] uppercase",
+                  gate.ready
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                    : "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+                )}
+              >
+                Pre-Review Gate: {gate.ready ? "Ready" : `Blocked (${gate.missing.length} missing)`}
+              </Badge>
+            </div>
+            <CardDescription>
+              Mission #004A — compile a real CTO Review Package, request review once the gate passes,
+              import the CTO&apos;s decision with human confirmation, and see who owns the next move.
+              Nothing here auto-merges, auto-deploys, or auto-approves.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="package">
+              <TabsList>
+                <TabsTrigger value="package">Review Package</TabsTrigger>
+                <TabsTrigger value="import">Decision Import</TabsTrigger>
+                <TabsTrigger value="inbox">Engineering Inbox</TabsTrigger>
+                <TabsTrigger value="timeline">Mission Timeline</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="package" className="pt-4">
+                <ReviewPackagePanel missionId={mission.id} />
+              </TabsContent>
+
+              <TabsContent value="import" className="pt-4">
+                <DecisionImportForm
+                  missionId={mission.id}
+                  ctoBriefId={missionBriefs[0]?.id ?? null}
+                />
+              </TabsContent>
+
+              <TabsContent value="inbox" className="pt-4">
+                <EngineeringInbox rows={inboxRows} />
+              </TabsContent>
+
+              <TabsContent value="timeline" className="pt-4">
+                <MissionTimeline entries={missionTimelineEntries} />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

@@ -376,3 +376,47 @@ export interface CtoBriefRecord {
   generatedByName: string | null;
   createdAt: string;
 }
+
+// ── CTO Integration & Review Automation (Mission #004A) ─────────────────────
+
+export type CtoApprovalStatus = "pending" | "approved" | "approved_with_conditions" | "rejected";
+
+export interface CtoDecisionImportRecord {
+  id: string;
+  missionId: string;
+  ctoBriefId: string | null;
+  rawText: string;
+  decision: string;
+  conditions: string | null;
+  risks: string | null;
+  requiredActions: string | null;
+  confidence: string | null;
+  approvalStatus: CtoApprovalStatus;
+  importedByName: string | null;
+  confirmedAt: string;
+  createdAt: string;
+}
+
+/** One row per internal role (CEO, CTO, HyperAgent, Hermes) for a given mission. */
+export interface EngineeringInboxRow {
+  role: "ceo" | "cto" | "hyperagent" | "hermes";
+  roleLabel: string;
+  status: string;
+  blocker: string | null;
+  lastUpdate: string | null;
+  nextOwner: boolean;
+}
+
+/**
+ * A single unified, chronological entry in the Mission Timeline — composed
+ * from reports, mission_events, decisions, and cto_briefs. No new table:
+ * this is a read-time merge with a stable discriminant kind.
+ */
+export interface MissionTimelineEntry {
+  id: string;
+  kind: "report" | "event" | "decision" | "brief" | "cto_decision_import";
+  actor: string;
+  summary: string;
+  createdAt: string;
+  auditRef: string;
+}
