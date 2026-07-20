@@ -38,6 +38,28 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
   Company Memory, report intake, audit trail, CTO decision imports). Never point Bridge
   HQ code at `ruby-reservations`, or vice versa.
 
+## Vercel production deploys — manual promotion is intentional (Mission #004A)
+
+The Vercel project `bridge` (team `phireij-4140s-projects`) has its **Production**
+environment's Branch Tracking set to `main`. Since `main` only ever holds repo init (see
+above), pushes to `feat/bridge-v0.1` and every downstream feature branch only ever
+produce **Preview** deployments — never an automatic Production deployment. Every
+"production" release so far has been a manual "Promote to Production" click on a
+Preview build.
+
+This was investigated (2026-07-20, live in the Vercel dashboard with the CEO) and
+confirmed **intentional, not a misconfiguration**: it is the human-review gate that the
+Guardrails below already require ("never merge to production without CTO/CEO review").
+Pointing Production's Branch Tracking directly at a feature branch would let any push —
+including an agent's — auto-deploy to production with no human step in between, which
+would remove that gate. Do not change this setting without explicit CEO approval; if
+asked to "fix" the manual-promote behavior, point back to this section first.
+
+Both production custom domains (`reservations.rubyscakedelights.shop` and
+`bridge-gray-one.vercel.app`) are bound to this same Production environment, with
+"Auto-assign Custom Production Domains" enabled — domain reattachment on promotion is
+not the issue; only the branch-tracking trigger is.
+
 ## Guardrails (never violate without explicit CEO approval)
 
 - No production merge, DNS change, secret rotation, destructive DB action, or paid
@@ -53,6 +75,9 @@ public link) and `docs/ARCHITECTURE.md` / `docs/DEPLOYMENT.md`.
 - Never auto-approve, auto-merge, or auto-deploy based only on an imported CTO decision
   (Mission #004A) — a human confirmation step and, separately, an explicit CEO approval
   are always required.
+- Never change Vercel's Production Branch Tracking (currently `main`) without explicit
+  CEO approval — see "Vercel production deploys" above; the manual promotion step is a
+  deliberate review gate, not a bug.
 
 ## Freeze rules — Ruby reservation system (Mission #001H)
 
